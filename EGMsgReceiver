@@ -1,0 +1,8 @@
+#!/bin/csh
+# @(#)EGMsgReceiver	4.1 94/05/16 jsloan@ncar.ucar.edu
+
+egmsgsender localhost 20000 A 10 >& /dev/null
+egmsgsender localhost 20000 B 10 >& /dev/null & egmsgsender localhost 20000 C 10 >& /dev/null & egmsgsender localhost 20000 D 10 >& /dev/null 
+wait
+egmsgsender localhost 20000 E 10 >& /dev/null 
+

@@ -1,0 +1,126 @@
+
+                  LIMITED SOFTWARE LICENSE AGREEMENT
+                            ("Agreement")
+
+This Agreement is entered into by and between the University Corporation
+for Atmospheric Research ("UCAR") having a business address of P. O. Box
+3000, Boulder, CO, 80307, and the below-identified "Licensee."
+
+1.      Licensee requests access to and use of the following software
+        ("Software").
+
+	Software Description: LibTools (either in object or source
+	form) which provides functionality which manipulates data
+	structures; LibIpc (either in object or source form) which
+	provides functionality which supports stream-based interprocess
+	communication; and LibMessages (either in object or source
+	form) which provides functionality which supports message
+	passing.
+
+        Term: Twenty-five (25) years from the effective date of this
+        Agreement.
+
+        License Fee: N/A
+
+        Site: A single facility and/or location (a particular campus,
+        building or department, as appropriate) having the same address
+        as specified below, which must be owned, leased, or otherwise
+        under the control, supervision or direction of the Licensee.
+
+2.      UCAR grants to Licensee a nonexclusive, personal, revocable,
+        non-transferable, limited license to access, use, modify, alter,
+        change, or enhance the Software at the Site listed below only
+        for internal data processing needs associated with academic,
+        scientific, and other noncommercial purposes, and for no other
+        purpose.
+
+3.      Licensee agrees to reasonably cooperate with UCAR and provide
+        UCAR with data and information, including any enhancements or
+        improvements in the Software, that may, in Licensee's opinion,
+        be of benefit to UCAR.
+
+4.      UCAR WILL NOT BE LIABLE FOR ANY INDIRECT, SPECIAL OR
+        CONSEQUENTIAL DAMAGES IN CONNECTION WITH OR ARISING FROM THE
+        PROVISION OF, PERFORMANCE OF OR USE OF THE SOFTWARE BY
+        LICENSEE. THE SOFTWARE IS PROVIDED "AS IS" AND THERE ARE NO
+        WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO,
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+        PARTICULAR PURPOSE.
+
+5.      Licensee will be responsible for adequately safeguarding
+        (backing up) its data used in conjunction with the Software.
+        UCAR assumes no liability for any corruption, erasure,
+        mishandling or the like of Licensee's data. Licensee agrees
+        that it will only make archival, necessary working and/or
+        backup copies of the Software. Licensee acknowledges that the
+        Software and any associated documentation are copyrighted by
+        UCAR, and therefore all copyright notices and any other
+        associated acknowledgements shall be retained intact on any
+        of the permitted copies, as defined in this paragraph 5.
+
+6.      UCAR shall not provide Licensee with any support, maintenance,
+        or consulting services for the Software provided hereunder,
+        unless otherwise agreed to in a separate writing.
+
+7.      UCAR shall not be obligated, at any time, to provide any new
+        versions or releases; or modifications, improvements,
+        enhancements, or updates of the Software to the Licensee. In the
+        event that UCAR, at its sole discretion, does so provide, the
+        terms and conditions of this Agreement shall apply to such new
+        versions or releases; or modifications, improvements,
+        enhancements or updates.
+
+8.      Licensee agrees not to copy, except as specified in paragraph
+        5, disseminate, distribute, release, sell, lease, license or
+        transfer, in any manner, the Software and any associated
+        documentation to any third party for any reason, unless
+        specifically authorized in writing by UCAR to do so.
+
+9.      Licensee acknowledges that UCAR has full right, title and
+        interest including, but not limited to, all associated, related
+        and resultant intellectual property, which includes, but is not
+        limited to, patents, trade secrets or copyrights, in and to
+        all versions, releases, modifications, improvements,
+        enhancements or updates of the Software and associated
+        documentation.
+
+10.     In the event that Licensee breaches any of the terms and
+        conditions of this Agreement, UCAR shall be entitled to
+        immediately terminate this Agreement and shall be entitled to
+        all legal and equitable damages, including reasonable
+        attorney's fees.
+
+11.     At the conclusion of the term of this Agreement, or in the event
+        of termination, Licensee shall at UCAR's option, return to
+        UCAR the Software and associated documentation and any copies
+        thereof; or destroy the Software and associated documentation
+        at UCAR's request, and provide UCAR with written certification
+        of such destruction.
+
+12.     Licensee shall adhere to the U.S. Export Administration Laws and
+        Regulations and shall not export or re-export any Software or
+        any associated documentation to any country or person outside
+        the United States unless properly authorized by the U.S.
+        Government.
+
+13.     This Agreement shall be governed by the laws of the state of
+        Colorado.
+
+Acknowledged and agreed to by:
+
+_______________________________________________________________________
+Printed Name
+
+_______________________________________________________________________
+Signature
+
+_______________________________________________________________________
+Date
+
+_______________________________________________________________________
+Entity
+
+_______________________________________________________________________
+Address
+
+@(#)LICENSE	4.1 94/05/16

@@ -1,0 +1,9 @@
+#!/bin/csh
+# @(#)EGMsgPoller	4.1 94/05/16 jsloan@ncar.ucar.edu
+
+egmsgsender localhost 20000 A 100 >& /dev/null
+egmsgsender localhost 20000 B 100 >& /dev/null & egmsgsender localhost 20000 C 100 >& /dev/null & egmsgsender localhost 20000 D 100 >& /dev/null 
+wait
+egmsgsender localhost 20000 E 100 >& /dev/null 
+
+

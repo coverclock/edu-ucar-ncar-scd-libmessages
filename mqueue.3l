@@ -1,0 +1,126 @@
+.TH MQUEUE 3-local "94/05/16"
+.SH NAME
+mqueue, mqrecv, mqueued, mqfree \- message queuing
+.SH COPYRIGHT
+Copyright \(co 1990 University Corporation for Atmospheric Research
+.LP
+All Rights Reserved
+.SH SYNOPSIS
+.nf
+.B #include "mqueue.h"
+.LP
+.B void mqueue(queue,flavors)
+.B MQUEUE queue[];
+.B int flavors;
+.LP
+.B int mqrecv(sock,msgp,mask,queue,flavorama)
+.B IPCSOCKET sock;
+.B MESSAGE **msgp;
+.B MQMASK mask;
+.B MQUEUE queue[];
+.B int (*flavorama)(MESSAGE *m);
+.LP
+.B void mfree(queue,flavors)
+.B MQUEUE queue[];
+.B int flavors;
+.LP
+.B MQMASK mqueued(mask,queue)
+.B MQMASK mask;
+.B MQUEUE queue[];
+.fi
+.SH DESCRIPTION
+When doing interprocess message passing using the
+.BR messages (3l)
+package, messages are received in the order that they arrived, even
+though some flavors of messages may be tastier than others:  certain
+flavors of messages may be more important than others, or perhaps the
+recepient is only prepared to process a particular flavor of message.
+.LP
+.B mqrecv
+allows an application to preferentially receive messages according to
+a caller-defined flavor. Incoming messages that have the wrong flavor
+are queued until a message of that flavor is specifically requested. A
+flavor is a number within the range zero through
+.B MQMAX
+(in this implementation,
+.B MQMAX
+is defined to be one less than the
+number of bits in a long word; on a Sun-4, this yields a range of
+values of zero to thirty-one, or thirty-two different flavors). What these
+flavors mean to the receiving application is completely arbitrary. They
+may map to priorities, so that high priority messages are given
+preference, etc.
+.LP
+.B mqueue
+initializes
+.IR queue ,
+an array of message queues of size
+.IR flavors ,
+supporting a range of flavors from zero through
+.IR flavors -1.
+Messages of flavor
+.I i
+will be queued on
+.IR queue[i] .
+.LP
+.B mqrecv
+returns in
+.I msgp
+the first queued message whose flavor has its corresponding bit set in
+.IR mask ;
+flavor zero would have bit zero set, etc. If no message of any of
+the selected flavors is available,
+.B mrecv
+is called to receive a new message. The flavor of the new message is
+returned by the caller-supplied function
+.IR flavorama .
+The message is placed at the end of the appropriate list in the array
+.IR queue .
+.B mqrecv
+iterates until a message meeting the selection mask is available.
+.B mqrecv
+returns as its value a mask indicating what flavor of message has
+been placed in
+.IR msgp .
+.LP
+Lower order bits are always given preference; that is, the queue array
+is scanned starting with position zero (corresponding to bit zero in
+.IR mask ),
+and the message from the first queue that has its corresponding bit set in
+.I mask
+and that has a message available is used.  Thus, higher priority
+messages should be assigned lower numbered flavors.
+.LP
+.B mqfree
+frees all messages queued on all queues in the array
+.I queue
+of length
+.IR flavors .
+.LP
+.B mqueued
+returns a mask indicating whether messages of each flavor are
+queued in the array
+.IR queue .
+.SH "RETURN VALUES"
+.B mqrecv
+returns a positive number upon success (all valid masks are positive),
+zero if the interprocess communication link is lost, and
+a negative number upon error with errno set appropriately.
+.LP
+.B mqueued
+returns a mask indicating what flavors of messages is queued (if any
+are). More than one bit may be set.
+.SH BUGS
+Starvation of messages in the higher numbered queues is possible.
+.LP
+Very little error checking is performed. For example, specifying a
+.I mask
+of zero will produce interesting results.
+.SH FILES
+libipc.a
+.SH "SEE ALSO"
+.BR messages (3l)
+.SH VERSION
+@(#)mqueue.3l	4.1 94/05/16 jsloan@ncar.ucar.edu
+.SH AUTHOR
+John Sloan, NCAR/SCD, P.O. Box 3000, Boulder CO 80307

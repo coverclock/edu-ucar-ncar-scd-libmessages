@@ -1,0 +1,16 @@
+#!/bin/sh
+# @(#)sccsunbundle	4.1 94/05/16 jsloan@ncar.ucar.edu
+# Extracts all SCCS files that are not already extracted. This is useful
+# because it doesn't update the times of the files that have already
+# been extracted. Hence, make doesn't rebuild them.
+
+if [ -d SCCS ]; then
+	for S in `(cd SCCS;ls s.*)`; do
+		F=`echo $S|sed -e 's/^s\.//'`
+		if [ ! -f $F ]; then
+			echo "$F:"
+			sccs get $F
+		fi
+	done
+fi
+exit 0

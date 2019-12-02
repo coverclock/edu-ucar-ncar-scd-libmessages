@@ -1,0 +1,317 @@
+.TH SVMESSAGE 3-local "94/05/16"
+.SH NAME
+svmname, svmserver, svmclient, svmpeer, svmremove, svmmode, svminit, svmsend, svmrecv, svmcheck, svmtype, svmlength, svmreply, svmbody \- message passing routines based on System V IPC
+.SH COPYRIGHT
+Copyright \(co 1990 University Corporation for Atmospheric Research
+.LP
+All Rights Reserved
+.SH SYNOPSIS
+.nf
+.B #include "svmessage.h"
+.LP
+.B key_t svmname(key)
+.B char key[sizeof(long)];
+.LP
+.B int svmserver(key)
+.B key_t key;
+.LP
+.B int svmclient(key)
+.B key_t key;
+.LP
+.B int svmpeer(key)
+.B key_t key;
+.LP
+.B int svmremove(id)
+.B int id;
+.LP
+.B int svmmode(id,mode)
+.B int id;
+.B int mode;
+.LP
+.B struct svmessage \(**svminit(msg,typ,rep,txt,len)
+.B struct svmessage \(**msg;
+.B long typ;
+.B int rep;
+.B char txt[];
+.B int len;
+.LP
+.B int svmsend(id,msg)
+.B int id;
+.B struct svmessage \(**msg;
+.LP
+.B int svmrecv(id,msg,len,typ)
+.B int id;
+.B struct svmessage \(**msg;
+.B int len;
+.B long typ;
+.LP
+.B int svmcheck(id,msg,len,typ)
+.B int id;
+.B struct svmessage \(**msg;
+.B int len;
+.B long typ;
+.LP
+.B long svmtype(msg)
+.B struct svmessage \(**msg;
+.LP
+.B int svmlength(msg)
+.B struct svmessage \(**msg;
+.LP
+.B int svmreply(msg)
+.B struct svmessage \(**msg;
+.LP
+.B char \(**svmbody(msg)
+.B struct svmessage \(**msg;
+.B 
+.fi
+.SH DESCRIPTION
+These routines implement a simple message passing scheme based on an
+abstract data type,
+using the native System V message queue IPC facilities. The principle
+C data structures are
+.BR svmessagehead ,
+.BR svmessage ,
+and
+.BR SVMESSAGE .
+.LP
+.nf
+.ft L
+struct svmessagehead
+        {
+        long svm_type;        /* message type (value must be > 0) */
+        int  svm_reply;        /* id of message queue to reply to */
+        int  svm_length;        /* length of body of message */
+        };
+.LP
+struct svmessage
+        {
+        struct svmessagehead svm_head;
+        char                 svm_body[1];
+        };
+.LP
+#define SVMESSAGE(l)   struct { struct svmessagehead mhead; char mbody[l]; }
+.ft P
+.fi
+.LP
+.B svmessage
+reflects the general structure of a message.
+This structure would probably never be used
+to actually allocate message buffers
+(because of the one character body), but it is useful for
+declaring generic message pointers (which is how it is used
+in the implementation).
+.LP
+All messages are assumed to have the
+.B svmessagehead
+structure immediately
+preceding the body of the message. The type field is
+required for the System V IPC facility. The rest is required
+by this module. Typically the user does not need to
+deal with these fields. They are filled in by
+.BR svminit ,
+and accessed using other routines in this
+module. The abstract data type is not
+enforced by the C compiler, but it is still a useful
+convention.
+.LP
+.B SVMESSAGE
+is a macro which allocates a structure with the appropriate
+header. For example,
+.LP
+.nf
+.ft L
+SVMESSAGE(100)	mpool[10];
+.ft P
+.fi
+.LP
+declares an array of 10
+.B svmessage
+structures, called
+.IR mpool ,
+each of which would have a message body 100 bytes long. If
+the user want something more complicated than a character array for the
+message body (e.g. a structure), then they need to declare their
+own message structure with a
+.B svmessagehead
+as its first element.
+.LP
+In all the calls,
+.I key
+is a longword used to initially identify a message queue. It may be
+coded as a numerical value, or a long returned by
+.BR svmname .
+Each key must be mapped once to an
+.IR id ,
+which is a message queue identifier (not unlike how
+.BR open (2)
+maps pathnames to a file descriptor).
+The id is used to identify the message queue in all subsequent calls.
+.I msg
+is a pointer to an
+.B svmessage
+structure (or at least a structure having an
+.B svmessagehead
+as its first element).
+.I len
+is the length of the message body in bytes.
+Messages may have types, and may be selectively chosen from the
+message queue based on type.
+.I typ
+is the type of message. A particular message must be given a type greater
+than zero. Asking for message type zero when reading messages returns
+the next available message of any type.
+.I rep
+is a message queue identifier that to which replies may be sent. Each
+message sent contains a reply identifier. It is up to the cooperating
+processes to make sure that this value is meaningful.
+.LP
+.B svmname
+naively maps a character string to a long integer.
+If the string is longer than sizeof(long),
+additional characters are ignored. If the string is shorter, the long
+is zero padded on the right.  Since both System V message queue keys
+and message types are declared long, this is useful for using short
+ASCII strings as queue names or type labels. If the length of the
+string is zero (e.g. ""), IPC_PRIVATE is returned.
+.LP
+.BR svmserver ,
+.BR svmclient ,
+and
+.B svmpeer
+each maps a message queue key to a unique message identifier.
+They differ only in the conditions under which they may create the
+message queue.
+.B svmserver
+creates the message queue, returning an error if it already exists.
+.B svmclient
+returns an error if the message queue does not already exist.
+.B svmpeer
+creates the message queue if it does not already exist. Thus, processes
+may have client/server relationships, in which the client is informed
+if the server is not running, or peer relationships, in which any peer
+process may create the message queue. Cooperating processes may want
+to create two peer message queues for exchanging messages.
+A message queue identifier is returned if all is copacetic.
+.LP
+.B svmremove
+deletes a message queue from the System V
+message queue space. This should probably only be done by
+the process which created the message queue (i.e.
+client processes will probably not delete the server
+process message queue). Peers may want to call
+.B svmremove
+and ignore the return code.
+.LP
+.B svmmode
+sets the
+.I mode
+on a message queue. In this package, all message queues are
+created with mode 0620 by default. The previous
+mode is returned. Only the last nine bits of the new
+mode is used (the traditional UNIX file permission
+bits). It is not clear from
+.BR msgctl (2)
+what execute permission implies;
+.BR ipcs (1)
+does not seem to report it. If the new mode is zero, the mode is
+not changed, merely reported. The returned mode includes
+all the mode bits, not just the last nine bits.
+.LP
+.B svminit
+initializes an
+.B svmessage
+structure by filling in all the necessary fields, includng the actual
+body of the message. None of the arguments are validity checked before
+being handed off to the system calls. The supplied
+.B svmessage
+structure
+is assumed to be big enough to contain the message body. The
+address of the
+.B svmessage
+structure is returned. This makes it
+convenient to imbed a call to
+.B svminit
+wherever a
+.I msg
+arguments is used.
+.B svminit
+is not necessary, but it eliminates the need for the caller to
+crack the
+.B svmessage
+and
+.B svmessagehead
+data structures.
+.LP
+.B svmsend
+sends a message to a message queue. All of
+the fields in the
+.B svmessage
+structure are assumed to
+have been filled in, by
+.B svminit
+or otherwise. The length is manipulated to take into account the
+size of the extra fields in the
+.B svmessagehead
+structure.
+.LP
+.B svmrecv
+and
+.B svmcheck
+each receives a message from a message
+queue. The fields in the
+.B svmessagehead
+structure will be
+filled in. A specific message type can be requested.
+The length is manipulated to take into account the
+size of the extra fields in the
+.B svmessagehead
+structure. The two functions differ only in that
+.B svmrecv
+waits until a message arrives, while
+.B svmcheck
+is non-blocking.
+The total number of bytes received is returned.
+.B svmcheck
+returns a 0 if no message is waiting.
+The byte count includes portions of
+the
+.B svmessagehead
+structure, so this value will be
+greater than the actual length of the
+message body.
+.LP
+.B svmtype
+returns the message type.
+.B svmlength
+returns the length in bytes of the actual message body.
+.B svmreply
+returns the id of the reply message queue. This is only meaningful
+if the sending process supplied a value for the reply identifier.
+.B svmbody
+returns the address of the message body. These routines are
+not necessary, but they eliminate the need for the caller to
+crack the
+.B svmessagehead
+structure.
+.SH "RETURN VALUES"
+In all cases where errors may occur, a negative number will be
+returned, and errno will be set appropriately.
+.SH ERRORS
+Most errors are due to the failure of an underlying System V IPC
+system call.
+.SH SEE ALSO
+.BR msgctl (2),
+.BR msgget (2),
+.BR msgop (2),
+.BR msgrcv (2),
+.BR msgsnd (2),
+.BR ipcrm (1),
+.BR ipcs (1)
+.SH BUGS
+None. Yet.
+.SH FILES
+libipc.a
+.SH VERSION
+@(#)svmessage.3l	4.1 94/05/16 jsloan@ncar.ucar.edu
+.SH AUTHOR
+John Sloan, NCAR/SCD, P.O. Box 3000, Boulder CO 80307

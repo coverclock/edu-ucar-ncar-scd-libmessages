@@ -1,0 +1,27 @@
+#!/bin/sh
+# @(#)cpdate	4.1 94/05/16 jsloan@ncar.ucar.edu
+# There are better ways to do this on some Unices, but this works
+# one any vanilla Unix with a typical date command
+TS=`date | tr ':' ' ' |
+	sed -e 's/Jan/01/
+		s/Feb/02/
+		s/Mar/03/
+		s/Apr/04/
+		s/May/05/
+		s/Jun/06/
+		s/Jul/07/
+		s/Aug/08/
+		s/Sep/09/
+		s/Oct/10/
+		s/Nov/11/
+		s/Dec/12/' |
+	awk '{printf("%04d%02d%02d%02d%02d%02d\n",$8,$2,$3,$4,$5,$6);}' `
+if [ $# -gt 0 ]; then
+	if [ $# -gt 1 ]; then
+		cp $1 $2/$1.$TS
+	else
+		cp $1 $1.$TS
+	fi
+else
+	echo "usage: `basename $0` file [ directory ]"
+fi

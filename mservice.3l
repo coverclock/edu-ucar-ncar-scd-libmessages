@@ -1,0 +1,266 @@
+.TH MSERVICE 3-local "@(#)mservice.3l	4.1"
+.SH NAME
+mservice \- asynchronous message passing service
+.SH COPYRIGHT
+Copyright \(co 1990 University Corporation for Atmospheric Research
+.LP
+All Rights Reserved
+.SH SYNOPSIS
+.nf
+.B #include "mservice.h"
+.LP
+.B int mservice(connsock)
+.B IPCSOCKET connsock;
+.LP
+.B int mscreate(sock)
+.B IPCSOCKET sock;
+.LP
+.B int msclose(sock)
+.B IPCSOCKET sock;
+.LP
+.B int msfree(IPCSOCKET sock)
+.B IPCSOCKET sock;
+.LP
+.B int mspoll(sock,mp)
+.B IPCSOCKET sock;
+.B MESSAGE **mp;
+.LP
+.B int msrecv(sock,mp)
+.B IPCSOCKET sock;
+.B MESSAGE **mp;
+.LP
+.B int msstate(sock)
+.B IPCSOCKET sock;
+.LP
+.B int mscount(sock)
+.B IPCSOCKET sock;
+.LP
+.B void mspool(fp)
+.B FILE *fp;
+.LP
+.B void msshutdown()
+.fi
+.SH DESCRIPTION
+.LP
+The
+.I message service
+family of functions implement an asynchronous signal-driven multiplexed
+message management facility compatible with the message sending
+functions described in
+.IR messages (3l).
+Connection requests are accepted from a specified connection
+socket, and each resulting message socket is associated with a
+.IR service .
+All such sockets are multiplexed as data arrives, and incoming messages
+are received and assembled piece-meal by a finite state machine
+present in each service. When a message is complete, it is placed at the
+end of a queue of messages.
+.LP
+.B mservice
+starts the message service facility.
+.I connsock
+specifies the socket from which connection requests will arrive.
+.B mservice
+can be called more than once to specify multiple conection sockets.
+New sockets generated from connection requests automatically have
+services associated with them.
+.LP
+.B mscreate
+can be used to explicitly associate a service with a socket, allowing
+sockets not associated with connection request from a
+.I connsock
+to be serviced.
+.LP
+.B msfree
+deallocates the service associated with the socket
+.IR sock ,
+which can be either a conection socket (specified using a prior
+.BR mservice ),
+or a message socket (perhaps specified using a prior
+.BR mscreate ).
+.LP
+.B msclose
+closes the socket
+.I sock
+but does not deallocate the service. This allows an application to drop
+a socket from being automatically serviced, but maintains the
+connection for other uses. This leaves the possibility of reestablishing
+message service using
+.B mscreate
+or
+.BR mservice ,
+depending on whether the socket is for connection requests or for
+incoming messages, at a later time. To completely eliminate all service
+to a socket, the socket should first be
+.BR msclose d
+then
+.BR msfree d.
+.LP
+.B msrecv
+and
+.B mspoll
+are used in a manner similar to
+.B mrecv
+(see
+.BR messages (3l)).
+Each is used to retrieve a message and place it in the message pointer
+.IR mp .
+Unlike
+.BR mrecv ,
+the message is not actually received from the socket
+.IR sock .
+Instead the message queue is scanned for the first message that was
+originally received over
+.IR sock .
+If no such message exists on the queue,
+.B msrecv
+waits until such a message appears, while
+.B mspoll
+returns a null pointer. If
+.B MSVC_ANY
+is used as the value of
+.IR sock ,
+any message that arrived from any socket is dequeued and returned.
+.LP
+Associated with each service and with each message is an
+.B msvcinfo
+structure whose format is shown below.
+.LP
+.ft L
+.nf
+struct msvcinfo
+	{
+	IPCSOCKET	msvc_socket;	/* socket file descriptor */
+	int		msvc_serial;	/* message serial number */
+	int		msvc_status;	/* connection status */
+#define			MSVC_INVALID	'X'
+#define			MSVC_BUSY	'B'
+#define			MSVC_IDLE	'I'
+#define			MSVC_CLOSED	'C'
+#define			MSVC_FAILED	'F'
+#define			MSVC_UNUSED	'U'
+#define			MSVC_UNKNOWN	'?'
+	IPCADDRESS	msvc_host;	/* IP address */
+	IPCPORT		msvc_port;	/* IP port number */
+	int		msvc_uid;	/* user id of last message */
+	};
+.fi
+.ft P
+.LP
+.B msminfo
+returns in the structure pointed to by
+.I ip
+the contents of
+the info structure associated with the most recent message provided by
+.B msrecv
+or
+.BR mspoll .
+This information describes the context in which the most recent message was
+received.
+.LP
+.B mssinfo
+similarly returns the info structure that describes the state of the
+service associated with
+.IR sock .
+.SH DISCUSSION
+A socket has associated with it a
+.I service
+by virtue of either having
+resulting from a connection request on the socket specified by
+.I mainsock
+in the
+.B mservice
+call (in which case the service is created automatically),
+or from being specified by
+.I sock
+in a
+.B mscreate
+call. Each service includes state information about the
+connection, a finite state machine used to build messages, and
+a buffer containing a partial message. Once a service is created,
+the message service facility automatically handles all incoming
+messages from the socket.
+.LP
+Since the
+.BR read (2)
+system call is not atomic, a message, particuarly a large message,
+may arrive in pieces. The finite state machine of a service assembles
+a complete message as it arrives. I/O from all serviced sockets is
+multiplexed, so that at any one time, there may be as many as one
+partial message for each socket being built. Once a message is
+completely received and built, it is placed at the end of a single
+queue in memory. Hence, at any one time, this queue may contain a
+sequence of messages from many sockets in the order that they messages
+were completed.
+.LP
+Sockets are serviced asynchronously upon receipt of a SIGIO signal
+indicating data is available on a file descriptor. This allows messages
+to be built and queued independent of when the application does a
+receive. Of particular importance is the fact that this eliminates the
+need for rendezvous, where a sender blocks on its send until the
+receiver issues its corresponding receive.
+.LP
+When
+.B msrecv
+is called instead of
+.B mspoll
+and there is no queued message from socket
+.I sock
+(or the queue is empty if MSVC_ANY was specified) the SIGIO signal
+is temporarily blocked, and the system reverts to synchronous I/O. 
+.B msrecv
+loops waiting on a
+.BR select (2)
+system call. Incoming messages from all serviced sockets continue
+to be built and queued, until a message from
+.I sock
+is finally available. Once this is done, asynchronous processing is
+restored.
+.SH "RETURN VALUES"
+All functions return a negative number upon failure, with
+.B errno
+set appropriately.
+.B mspoll
+returns a 1 if a message from socket
+.I sock
+was available, 0 otherwise. Because
+.B msrecv
+always waits for a message, it always returns a 1 upon success.
+.B msminfo
+and
+.B mssinfo
+return a 1 if the info structure was filled in, 0 otherwise. All other
+functions return a 0 to indicate success.
+.SH BUGS
+Since this facility has never been used in a production application, it
+must be considered experimental.
+.SH ERRORS
+Errors specific to the
+.B mservice
+functions are limited to
+.TP 20
+.SM EINVAL
+An invalid argument was passed to the function (most likely a NULL
+where an address was required);
+.TP
+.SM ENOMEM
+A
+.BR malloc (3)
+call failed to allocate memory.
+.LP
+If any of the underlying
+.B messages
+or
+.B ipc
+functions or related system calls return an error, then the value of
+errno is that set by these functions.
+.SH FILES
+libipc.a
+libtools.a
+.SH "SEE ALSO"
+.BR messages (3l)
+.BR ipc (3l)
+.SH VERSION
+@(#)mservice.3l	4.1 94/05/16 jsloan@ncar.ucar.edu
+.SH AUTHOR
+John Sloan, NCAR/SCD, P.O. Box 3000, Boulder CO 80307

@@ -1,0 +1,541 @@
+.TH MESSAGES 3-local "94/05/16"
+.SH NAME
+messages \- message passing with parcels
+.SH COPYRIGHT
+Copyright \(co 1990 University Corporation for Atmospheric Research
+.LP
+All Rights Reserved
+.SH SYNOPSIS
+.nf
+.B #include "messages.h"
+.B #include "ipc.h"
+.B #include "parcel.h"
+.LP
+.B MESSAGE *message(function,status,id,sequence,name)
+.B long function;
+.B long status;
+.B long id;
+.B long sequence;
+.B char *name;
+.LP
+.B IPCSOCKET mserver(service)
+.B char *service;
+.LP
+.B IPCSOCKET maccept(sock)
+.B int sock;
+.LP
+.B IPCSOCKET mpair(sockp)
+.B IPCSOCKET *sockp;
+.LP
+.B IPCSOCKET mready()
+.LP
+.B IPCSOCKET mtimed(seconds)
+.B int seconds;
+.LP
+.B IPCSOCKET mclient(host,service)
+.B char *host;
+.B char *service;
+.LP
+.B int mclose(sock)
+.B IPCSOCKET sock;
+.LP
+.B int msend(sock,msg)
+.B IPCSOCKET sock;
+.B MESSAGE *msg;
+.LP
+.B int mrecv(sock,msgp)
+.B IPCSOCKET sock;
+.B MESSAGE **msgp;
+.LP
+.B int mtrecv(sock,msgp,seconds)
+.B IPCSOCKET sock;
+.B MESSAGE **msgp;
+.B int seconds;
+.LP
+.B char *mextract(msg,key)
+.B MESSAGE *msg;
+.B char *key;
+.LP
+.B PILE mvextract(msg)
+.B MESSAGE *msg;
+.LP
+.B MESSAGE *minsert(msg,key,value)
+.B MESSAGE *msg;
+.B char *key;
+.B char *value;
+.LP
+.B MESSAGE *mvinsert(msg,block)
+.B MESSAGE *msg;
+.B PILE block;
+.LP
+.B MESSAGE *mmerge(msgfrom,msgto)
+.B MESSAGE *msgfrom;
+.B MESSAGE *msgto;
+.LP
+.B void mfree(msgp)
+.B MESSAGE **msgp;
+.LP
+.B void mpool(fp)
+.B FILE *fp;
+.LP
+.B void mshutdown()
+.LP
+.fi
+.SH DESCRIPTION
+.LP
+These functions implement a message passing facility built on top of
+the IPC package. Messages have the
+following structure.
+.LP
+.nf
+.ft L
+#define MSGNAMELEN                8
+
+struct mprefix
+        {
+        long msg_function;
+        long msg_status;
+        long msg_id;
+        long msg_sequence;
+        char msg_name[MSGNAMELEN];
+        };
+
+struct message
+        {
+        struct message *msg_next;
+        PARCEL          msg_parcel;
+        struct mprefix  msg_prefix;
+        };
+
+typedef struct message MESSAGE;
+.ft P
+.fi
+.LP
+While the names of the fields
+.IR msg_next,
+.IR msg_function ,
+.IR msg_status ,
+.IR msg_id,
+.IR msg_sequence
+and
+.I msg_name
+are suggestive, they are not used by the message passing functions and
+can thus be adopted for any purpose by the application program.
+msg_next is specifically intended to facilitate
+placing messages on a linked list, although it could be subverted for
+other purposes. It is never transmitted or received and is always
+ignored.
+msg_id is large enough to contain a complete internet address
+in binary form. Probably most simple request/response message
+passing applications can be serviced using only those fields in the
+mprefix structure.
+.LP
+For those that cannot, an optional PARCEL structure can be used. A
+PARCEL is a data structure that contains key/value pairs of strings
+in a form that is both memory and search-time efficient. Values in the
+PARCEL are accessed by identifying each one by a unique key. The PARCEL
+data structure is currently implemented as a binary tree ordered by the
+ASCII collating sequence, so that the average search time for a PARCEL
+containing N pairs is log2(N), with a upper bound proportional to N
+(that is, the worst case is linear).
+.LP
+When a message is sent to another process the PARCEL is transformed
+into a machine-independent form for transmission; when a message is
+received, the PARCEL is rebuilt. The overhead in supporting the PARCEL
+is not high. An empty or unused PARCEL imposes virtually no additional
+overhead to the message passing.
+.LP
+By using this scheme, processes can exchange information with little
+regard for the ordering of parameters, the presence of additional
+parameters, or the values of unreferenced parameters. For example,
+process P1 may send a message to process P2, who will extract the
+parameters that are useful to it, and then pass the same message along
+to process P3. A change in the number, order, or format of parameters
+that P3 expects from P1 will not require a change or even recompilation
+of P2, unless P2 also accesses those parameters. This is a attractive
+feature for applications distributed among several systems,
+particularly when those systems have different machine architectures.
+.LP
+In addition, keyword/value pairs can be added, changed, and deleted
+from an existing message, and a PARCEL from one message can be merged
+with that in another message.
+.LP
+Message structures are dynamically allocated and deallocated by the
+message passing functions as needed. The application program merely
+maintains message pointers,
+.LP
+.nf
+.ft L
+MESSAGE *msg1, *msg2, *msg3;
+.ft P
+.fi
+.LP
+which must either be initialized by the application program to NULL,
+.LP
+.nf
+.ft L
+msg1=NULL;
+.ft P
+.fi
+.LP
+which tells the the receive function to allocate a new message
+structure when necessary, or initialized with the function
+.B message
+which returns a pointer to a newly allocated message structure, as in
+.LP
+.nf
+.ft L
+msg2=message(0,0,0,0,"");
+.ft P
+.fi
+.LP
+done, for example, prior to sending the message. The
+.IR function ,
+.IR status ,
+.IR id ,
+and
+.I name
+arguments are used by
+.B message
+to initialize the message structure, although of course the application
+program may access and modify these fields explicitly.
+.LP
+.B mserver
+creates an open socket bound to the port associated with the specified
+.IR service .
+The
+.I service
+may be either a service name (which will be resolved using
+getservbyname(2)), for example "SERVER", or an ASCII representation of an
+actual port number, for example "10000". The function returns the connected
+socket descriptor.
+.LP
+.B maccept
+is used in tandem with
+.BR mserver .
+It causes the application to wait for a connection request to the socket
+.IR sock ,
+and then creates a new connected socket with which the actual
+message passing will take place. The typical server process will fork
+off a new child to actually service each connection as it is accepted.
+The function returns the new connected socket descriptor.
+.LP
+.B mpair
+creates a pair of connected sockets, registers one with
+.B mready
+(see below), returns the registered socket as its function value, and
+returns the other socket in the value/result parameter
+.IR sockp .
+.B mpair
+could be used by a parent process to create a socket pair prior
+to spawning another child process; the child would use the unregistered
+socket (always blocking), while the parent would use
+.B mready
+to multiplex among several registered sockets connected to other
+children.
+.LP
+.B mready
+offers an alternative to forking off a child process to handle
+each request.
+.B mready
+waits for and returns the socket number of any socket that has
+a pending request: either a connection request on a socket
+returned by
+.BR mserver ,
+in which case the calling program must do an
+.B maccept
+on that socket;
+or a receive request on a socket returned by
+.BR maccept ,
+in which case the calling program must do an
+.B mrecv
+on that socket. This allows an application to handle socket multiplexing
+from a single process. It is up to the calling program to determine
+if the pending socket is a server socket or a receive socket. As
+.B mready
+is called successive times, it will return a different pending socket each
+time, until all pending sockets have been reported, at which point it
+will begin reporting from the beginning again. This is whether or not
+the prior reported socket was actually serviced.
+.LP
+.B mtimed
+is identical to
+.B mready
+except that if an active socket is not available within
+.I seconds
+seconds, a negative number is returned (with errno set to ETIMEDOUT).
+.LP
+.B mclient
+makes a connection request of the port associated with
+.I service
+on the host
+.IR host .
+The client will block until the connection either succeeds or fails.
+In a manner similar to
+.IR service ,
+the argument
+.I host
+can be either a host name (which is resolved using gethostbyname(2)),
+for example "localhost", or an ASCII representation of an actual
+internet address in dot notation, for example "127.0.0.1".
+The function returns the connected socket descriptor. 
+.LP
+Both
+.B mserver
+and
+.B mclient
+create a bidirectional socket; the request can be received and the
+reply sent using the same pair of sockets. The function names
+.B mserver
+and
+.B mclient
+are suggestive of the relationship of the two communicating processes:
+a server binds a socket to an unused port and then waits for a message;
+a client requests a connection to an existing server socket.
+.LP
+.B mclose
+shuts down and closes the socket
+.IR sock .
+The function normally returns 0. Note that stream socket connection are
+relatively expensive to build up and tear down, so
+.BR mserver ,
+.BR mclient ,
+and
+.B mclose
+should be used as sparingly as possible.
+.LP
+.B msend
+sends the message pointed to by
+.I msg
+to the process at the other end of the connected socket
+.IR sock .
+The function returns the number of bytes sent.
+.LP
+.B mrecv
+receives a message from the connected socket
+.IR sock .
+The calling program blocks until a message arrives. If the value/result
+parameter
+.I msgp
+references a message pointer variable that in turn points to an
+existing message structure, that structure is used. If the value of the
+message pointer variable that
+.I msgp
+addresses is NULL, a new message structure will be allocated and used,
+and its address will be left in the message pointer variable. The
+function returns the number of bytes received.
+.LP
+.B mtrecv
+is identical to
+.B mrecv
+except that if a message header is not received within
+.I seconds
+seconds, followed by a message body within another
+.I seconds
+seconds, a negative number is returned (with errno set to ETIMEDOUT).
+.LP
+.B mextract
+returns a pointer to the value string associated with the key string
+.I key
+from the PARCEL of the message pointed to by
+.IR msg .
+If no such key can be found, NULL is returned.
+.LP
+.B mvextract
+(vector extract) returns a pointer to an argv-like array containing pairs
+of pointers to key and value strings for all entries in the PARCEL of
+the message pointed to by
+.IR msg .
+The pointers alternate in memory: pointer to key string, pointer to
+corresponding value string, key string, value string, etc. The
+array is terminated by a pair of NULL pointers.
+This structure is called a PILE; see the parcel(3l) man page
+for more information.
+The array is dynamically allocated, and must be explicitly freed by
+the calling program.
+.LP
+.B minsert
+inserts a new key/value pair with the key string
+.I key
+and the value string
+.I value
+into the PARCEL of the message pointed to by
+.IR msg .
+If an identical key already exists in the PARCEL, its value is replaced
+with the new value. If
+.I value
+is NULL and the key exists in the PARCEL, the key/value pair is deleted
+from the PARCEL. It is not an error to try to delete a key/value pair
+which does not exist. The function returns a pointer to the message
+structure.
+.LP
+.B mvinsert
+(vector insert)
+takes an argv-like array,
+.IR block ,
+of pairs of pointers to key and value strings in the manner of
+.BR mvextract ,
+and inserts each key and value pair into the PARCEL of the message
+pointed to by
+.BR msg .
+The array must be terminated by a NULL pointer.
+This structure is called a PILE; see the parcel(3l) man page
+for more information.
+.LP
+.B mmerge
+merges the PARCEL in the message pointed to by
+.I msgfrom
+into the PARCEL in the message pointed to by
+.IR msgto .
+If the two PARCELs are not disjoint, the values corresponding to the
+intersecting keys in the destination PARCEL are replaced with values from
+the source PARCEL. The function returns a pointer to the destination
+message structure.
+.LP
+.B mfree
+frees all dynamically allocated memory associated with the message
+structure addressed by the message pointer variable referenced by
+.IR msgp ,
+and the message pointer variable is reinitialized to NULL. This
+function is provided through a sense of completeness, although its
+use is usually unnecessary. The function normally returns 0.
+.LP
+Here are sample code fragments from a server and a client who
+exchange user names.
+.LP
+.nf
+.ft L
+/* Server */
+MESSAGE *msg;
+IPCSOCKET sock, newsock;
+char *olduser, *newuser;
+.sp
+msg=NULL;
+sock=mserver("serverport");
+while (1)
+        {
+        newsock=maccept(sock);
+        if (!fork())
+                {
+                mrecv(newsock,&msg);
+                olduser=mextract(msg,"USER");
+                minsert(msg,"USER",newuser);
+                msend(sock,msg);
+                mclose(newsock);
+                exit(0);
+                }
+        }
+.sp
+/* Client */
+MESSAGE *msg;
+IPCSOCKET sock;
+char *myuser, *mygroup, *youruser;
+.sp
+msg=message(1,2,3,4,"client");
+minsert(msg,"USER",myuser);
+minsert(msg,"GROUP",mygroup);
+sock=mclient("serverhost","serverport");
+msend(sock,msg);
+mrecv(sock,&msg);
+youruser=mextract(msg,"USER");
+mclose(sock);
+.ft P
+.fi
+.SH "RETURN VALUES"
+In the event of an error, all functions which return type int will
+return a negative number (not necessarily a -1), and all functions
+which return a pointer will return NULL. In either case the system
+global variable errno will be set to an appropriate value.
+.SH BUGS
+.B message
+has no way of checking to see if the message pointer variable to
+which its return value is assigned already references a message
+structure. If it does, the dynamically acquired memory associated
+with the old structure is lost.
+.LP
+The parameters inside the MESSAGE structure are kept in a PARCEL; the
+array used by
+.B mvextract
+and
+.B mvinsert
+is a PILE. The PARCEL is converted into a PACKET prior to
+being transmitted by
+.BR msend ,
+and reconverted back into a PARCEL when received by
+.BR mrecv .
+See the parcel(3l) man page for more information regarding
+the PARCEL, PILE, and PACKET data structures.
+.LP
+The PILE returned by
+.B mvextract
+is dynamically allocated and must be explicitly freed by the caller
+if its memory is to be recovered for reuse. The string pointers in
+the array returned by
+.B mvextract
+and the string pointer returned by
+.B mextract
+point to the actual strings inside the PARCEL. If a string is modified
+in-place, the entry in the PARCEL is changed. The memory associated with
+a PARCEL is explicitly freed when
+.B mfree
+is called against a message, and implicitly freed when a
+.B mrecv
+is called using the message; under these conditions, the string pointers
+in the array generated by
+.B mvextract
+from the same message are no longer valid.
+.LP
+The structures used by
+.B mready
+to handle the selection of pending sockets are static. There is no
+way to separate the multiplexing of multiple server sockets in the
+same process (one of the disadvantages of a simplified model is that
+often you lose some generality).
+.LP
+.B mready
+uses a round-robin approach as to which will be the next socket
+selected. This prevents starvation, but it means that a connection
+request must wait to be serviced until all pending receive requests
+are serviced.
+.LP
+An interesting alternative approach to this higher level message
+passing scheme would be to build a software layer on top of the System
+V IPC message passing mechanism, and then provide a daemon that would
+conspire with this upper layer to transparently transmit messages
+destined for foreign hosts via Berkeley reliable stream sockets. All
+receives would be System V receives, but each send would either be a
+System V send or a send over a socket to the daemon on the foreign
+host, which would serve as a surrogate to effect delivery on the other end
+on behalf of the sender. The return code from the System V send could
+be transmitted back through the bidirectional socket and echoed to
+the calling program. It is interesting that the vendors that market
+both BSD and SVID IPC mechanisms do not already provide such a
+mechanism. Its implementation, particularly in light of inetd(8C),
+would be trivial.
+.SH ERRORS
+Errors specific to the message passing functions are limited to
+.TP 20
+.SM EINVAL
+An invalid argument was passed to the function (most likely a NULL
+where an address was required);
+.TP
+.SM ENOMEM
+A malloc(3) call failed to allocate memory.
+.TP
+.SM ETIMEDOUT
+The specified timeout interval elapsed.
+.LP
+If any of the underlying interprocess communication functions or related
+system calls return an error, then the value of errno is that set by
+these functions.
+.SH FILES
+libtools.a
+.SH "SEE ALSO"
+.BR trees (3l),
+.BR keyval (3l),
+.BR parcel (3l),
+.BR ipc (3l)
+.SH VERSION
+@(#)messages.3l	4.1 94/05/16 jsloan@ncar.ucar.edu
+.SH AUTHOR
+John Sloan, NCAR/SCD, P.O. Box 3000, Boulder CO 80307
